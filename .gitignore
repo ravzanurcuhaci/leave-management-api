@@ -1,0 +1,12 @@
+# Bağımlılıklar
+node_modules/
+
+
+
+# Ortam değişkenleri
+.env
+
+
+
+
+

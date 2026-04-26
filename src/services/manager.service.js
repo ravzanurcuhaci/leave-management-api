@@ -1,0 +1,142 @@
+const pool = require("../db/pool");
+//leave_requests tablosu izinleri bilir.
+//users tablosu çalışanın manager’ını bilir.
+//leave_types tablosu izin türünün adını bilir.
+
+//Bu yüzden JOIN yaptık.
+//WHERE u.manager_id = managerId dediğimiz için manager sadece kendi çalışanlarını görür.
+const getLeaveRequests = async (managerId) => {
+    const result = await pool.query(
+        `SELECT 
+       lr.id,
+       lr.user_id,
+       u.full_name AS employee_name,
+       lr.leave_type_id,
+       lt.name AS leave_type,
+       lr.start_date,
+       lr.end_date,
+       lr.total_days,
+       lr.reason,
+       lr.status,
+       lr.reviewed_by,
+       lr.reviewed_at,
+       lr.created_at
+     FROM leave_requests lr
+     JOIN users u ON lr.user_id = u.id
+     JOIN leave_types lt ON lr.leave_type_id = lt.id
+     WHERE u.manager_id = $1
+     ORDER BY lr.created_at DESC`,
+        [managerId]
+    );
+
+    return result.rows;
+};
+
+//BEGIN   → işlem paketi başladı
+//COMMIT  → her şey başarılıysa kaydet
+//ROLLBACK → hata varsa hepsini geri al
+//FOR UPDATE → aynı kayıt aynı anda iki kişi tarafından değiştirilmesin
+const updateLeaveRequestStatus = async (managerId, leaveRequestId, status) => {
+    if (!["APPROVED", "REJECTED"].includes(status)) {
+        throw new Error("Status must be APPROVED or REJECTED");
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const requestResult = await client.query(
+            `SELECT 
+               lr.*,
+               u.manager_id
+             FROM leave_requests lr
+             JOIN users u ON lr.user_id = u.id
+             WHERE lr.id = $1
+             FOR UPDATE`,
+            [leaveRequestId]
+        );
+
+        if (requestResult.rows.length === 0) {
+            throw new Error("Leave request not found");
+        }
+
+        const leaveRequest = requestResult.rows[0];
+
+        if (leaveRequest.manager_id !== managerId) {
+            throw new Error("You can only update your employees' leave requests");
+        }
+
+        if (leaveRequest.status !== "PENDING") {
+            throw new Error("Only PENDING requests can be updated");
+        }
+
+        if (status === "APPROVED") {
+            const balanceResult = await client.query(
+                `SELECT remaining_days
+                 FROM leave_balances
+                 WHERE user_id = $1 AND leave_type_id = $2
+                 FOR UPDATE`,
+                [leaveRequest.user_id, leaveRequest.leave_type_id]
+            );
+
+            if (balanceResult.rows.length === 0) {
+                throw new Error("Leave balance not found");
+            }
+
+            const remainingDays = balanceResult.rows[0].remaining_days;
+
+            if (remainingDays < leaveRequest.total_days) {
+                throw new Error("Not enough leave balance");
+            }
+
+            await client.query(
+                `UPDATE leave_balances
+                 SET remaining_days = remaining_days - $1
+                 WHERE user_id = $2 AND leave_type_id = $3`,
+                [
+                    leaveRequest.total_days,
+                    leaveRequest.user_id,
+                    leaveRequest.leave_type_id,
+                ]
+            );
+        }
+
+        const updatedResult = await client.query(
+            `UPDATE leave_requests
+             SET status = $1,
+                 reviewed_by = $2,
+                 reviewed_at = CURRENT_TIMESTAMP
+             WHERE id = $3
+             RETURNING *`,
+            [status, managerId, leaveRequestId]
+        );
+
+        await client.query(
+            `INSERT INTO audit_logs (actor_user_id, action, target_type, target_id)
+             VALUES ($1, $2, $3, $4)`,
+            [
+                managerId,
+                status === "APPROVED"
+                    ? "APPROVE_LEAVE_REQUEST"
+                    : "REJECT_LEAVE_REQUEST",
+                "leave_request",
+                leaveRequestId,
+            ]
+        );
+
+        await client.query("COMMIT");
+
+        return updatedResult.rows[0];
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+module.exports = {
+    getLeaveRequests,
+    updateLeaveRequestStatus,
+};
