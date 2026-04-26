@@ -5,7 +5,25 @@ const pool = require("../db/pool");
 
 //Bu yüzden JOIN yaptık.
 //WHERE u.manager_id = managerId dediğimiz için manager sadece kendi çalışanlarını görür.
-const getLeaveRequests = async (managerId) => {
+const getLeaveRequests = async (managerId, filters) => {
+    const { status, page, limit } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const values = [managerId];
+    let whereClause = "WHERE u.manager_id = $1";
+
+    if (status) {
+        values.push(status);
+        whereClause += ` AND lr.status = $${values.length}`;
+    }
+
+    values.push(limit);
+    const limitIndex = values.length;
+
+    values.push(offset);
+    const offsetIndex = values.length;
+
     const result = await pool.query(
         `SELECT 
        lr.id,
@@ -24,12 +42,19 @@ const getLeaveRequests = async (managerId) => {
      FROM leave_requests lr
      JOIN users u ON lr.user_id = u.id
      JOIN leave_types lt ON lr.leave_type_id = lt.id
-     WHERE u.manager_id = $1
-     ORDER BY lr.created_at DESC`,
-        [managerId]
+     ${whereClause}
+     ORDER BY lr.created_at DESC
+     LIMIT $${limitIndex}
+     OFFSET $${offsetIndex}`,
+        values
     );
 
-    return result.rows;
+    return {
+        page,
+        limit,
+        count: result.rows.length,
+        leaveRequests: result.rows,
+    };
 };
 
 //BEGIN   → işlem paketi başladı
@@ -136,7 +161,60 @@ const updateLeaveRequestStatus = async (managerId, leaveRequestId, status) => {
     }
 };
 
+// Manager dashboard: pending / approved / rejected sayılarını döner
+const getDashboard = async (managerId) => {
+    const result = await pool.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE lr.status = 'PENDING')  AS pending,
+           COUNT(*) FILTER (WHERE lr.status = 'APPROVED') AS approved,
+           COUNT(*) FILTER (WHERE lr.status = 'REJECTED') AS rejected
+         FROM leave_requests lr
+         JOIN users u ON lr.user_id = u.id
+         WHERE u.manager_id = $1`,
+        [managerId]
+    );
+
+    return {
+        pending: Number(result.rows[0].pending),
+        approved: Number(result.rows[0].approved),
+        rejected: Number(result.rows[0].rejected),
+    };
+};
+
+// Manager tek bir izin talebinin detayını görür (sadece kendi çalışanının)
+const getLeaveRequestById = async (managerId, leaveRequestId) => {
+    const result = await pool.query(
+        `SELECT
+           lr.id,
+           lr.user_id,
+           u.full_name  AS employee_name,
+           lr.leave_type_id,
+           lt.name       AS leave_type,
+           lr.start_date,
+           lr.end_date,
+           lr.total_days,
+           lr.reason,
+           lr.status,
+           lr.reviewed_by,
+           lr.reviewed_at,
+           lr.created_at
+         FROM leave_requests lr
+         JOIN users u  ON lr.user_id = u.id
+         JOIN leave_types lt ON lr.leave_type_id = lt.id
+         WHERE lr.id = $1 AND u.manager_id = $2`,
+        [leaveRequestId, managerId]
+    );
+
+    if (result.rows.length === 0) {
+        throw new Error("Leave request not found");
+    }
+
+    return result.rows[0];
+};
+
 module.exports = {
     getLeaveRequests,
     updateLeaveRequestStatus,
+    getDashboard,
+    getLeaveRequestById,
 };

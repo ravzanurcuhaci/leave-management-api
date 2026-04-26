@@ -16,6 +16,10 @@ const authRoutes = require("./routes/auth.routes");
 const leaveRoutes = require("./routes/leave.routes");
 const managerRoutes = require("./routes/manager.routes");
 const leaveBalanceRoutes = require("./routes/leaveBalance.routes");
+const adminRoutes = require("./routes/admin.routes");
+const leaveTypeRoutes = require("./routes/leaveType.routes");
+const adminLeaveBalanceRoutes = require("./routes/adminLeaveBalance.routes");
+const auditLogRoutes = require("./routes/auditLog.routes");
 const app = express();
 
 app.use(express.json());
@@ -25,6 +29,10 @@ app.use("/auth", authRoutes);
 app.use("/leave-requests", leaveRoutes);
 app.use("/manager", managerRoutes);
 app.use("/leave-balances", leaveBalanceRoutes);
+app.use("/admin", adminRoutes);
+app.use("/leave-types", leaveTypeRoutes);
+app.use("/admin", adminLeaveBalanceRoutes);
+app.use("/admin", auditLogRoutes);
 
 app.get("/health", async (req, res) => {
     const result = await pool.query("SELECT NOW()");

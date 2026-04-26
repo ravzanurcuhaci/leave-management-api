@@ -37,6 +37,9 @@ const leaveController = require("../controllers/leave.controller");
  */
 router.post("/", authMiddleware, roleMiddleware(1), leaveController.createLeaveRequest);
 router.get("/my", authMiddleware, leaveController.getMyLeaveRequests);
+router.get("/:id", authMiddleware, leaveController.getLeaveRequestById);
+router.patch("/:id", authMiddleware, roleMiddleware(1), leaveController.updateLeaveRequest);
+router.delete("/:id", authMiddleware, roleMiddleware(1), leaveController.deleteLeaveRequest);
 
 module.exports = router;
 

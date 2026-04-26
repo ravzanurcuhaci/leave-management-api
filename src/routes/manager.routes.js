@@ -47,5 +47,38 @@ router.get("/leave-requests", authMiddleware, roleMiddleware(2), managerControll
  *         description: Leave request updated
  */
 router.patch("/leave-requests/:id/status", authMiddleware, roleMiddleware(2), managerController.updateLeaveRequestStatus);
+/**
+ * @swagger
+ * /manager/dashboard:
+ *   get:
+ *     summary: Get dashboard stats (pending/approved/rejected counts)
+ *     tags: [Manager]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard statistics
+ */
+router.get("/dashboard", authMiddleware, roleMiddleware(2), managerController.getDashboard);
+/**
+ * @swagger
+ * /manager/leave-requests/{id}:
+ *   get:
+ *     summary: Get single leave request detail
+ *     tags: [Manager]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Leave request ID
+ *     responses:
+ *       200:
+ *         description: Leave request detail
+ */
+router.get("/leave-requests/:id", authMiddleware, roleMiddleware(2), managerController.getLeaveRequestById);
 
 module.exports = router;

@@ -76,7 +76,139 @@ const getMyLeaveRequests = async (userId) => {
 
     return result.rows;
 };
+
+const getLeaveRequestById = async (userId, leaveRequestId) => {
+    const result = await pool.query(
+        `SELECT *
+     FROM leave_requests
+     WHERE id = $1 AND user_id = $2`,
+        [leaveRequestId, userId]
+    );
+
+    if (result.rows.length === 0) {
+        throw new Error("Leave request not found");
+    }
+
+    return result.rows[0];
+};
+
+const updateLeaveRequest = async (userId, leaveRequestId, data) => {
+    const { leave_type_id, start_date, end_date, reason } = data;
+
+    const existingResult = await pool.query(
+        `SELECT *
+     FROM leave_requests
+     WHERE id = $1 AND user_id = $2`,
+        [leaveRequestId, userId]
+    );
+
+    if (existingResult.rows.length === 0) {
+        throw new Error("Leave request not found");
+    }
+
+    const existingRequest = existingResult.rows[0];
+
+    if (existingRequest.status !== "PENDING") {
+        throw new Error("Only PENDING requests can be updated");
+    }
+
+    const newLeaveTypeId = leave_type_id || existingRequest.leave_type_id;
+    const newStartDate = start_date || existingRequest.start_date;
+    const newEndDate = end_date || existingRequest.end_date;
+    const newReason = reason !== undefined ? reason : existingRequest.reason;
+
+    const totalDays = calculateTotalDays(newStartDate, newEndDate);
+
+    if (totalDays <= 0) {
+        throw new Error("end_date must be after or equal to start_date");
+    }
+
+    const balanceResult = await pool.query(
+        `SELECT remaining_days
+     FROM leave_balances
+     WHERE user_id = $1 AND leave_type_id = $2`,
+        [userId, newLeaveTypeId]
+    );
+
+    if (balanceResult.rows.length === 0) {
+        throw new Error("Leave balance not found for this leave type");
+    }
+
+    const remainingDays = balanceResult.rows[0].remaining_days;
+
+    if (remainingDays < totalDays) {
+        throw new Error("Not enough leave balance");
+    }
+
+    const overlapResult = await pool.query(
+        `SELECT id
+     FROM leave_requests
+     WHERE user_id = $1
+       AND id != $2
+       AND status IN ('PENDING', 'APPROVED')
+       AND start_date <= $4
+       AND end_date >= $3`,
+        [userId, leaveRequestId, newStartDate, newEndDate]
+    );
+
+    if (overlapResult.rows.length > 0) {
+        throw new Error("Leave request overlaps with existing request");
+    }
+
+    const result = await pool.query(
+        `UPDATE leave_requests
+     SET leave_type_id = $1,
+         start_date = $2,
+         end_date = $3,
+         total_days = $4,
+         reason = $5
+     WHERE id = $6 AND user_id = $7
+     RETURNING *`,
+        [
+            newLeaveTypeId,
+            newStartDate,
+            newEndDate,
+            totalDays,
+            newReason,
+            leaveRequestId,
+            userId,
+        ]
+    );
+
+    return result.rows[0];
+};
+
+const deleteLeaveRequest = async (userId, leaveRequestId) => {
+    const existingResult = await pool.query(
+        `SELECT *
+     FROM leave_requests
+     WHERE id = $1 AND user_id = $2`,
+        [leaveRequestId, userId]
+    );
+
+    if (existingResult.rows.length === 0) {
+        throw new Error("Leave request not found");
+    }
+
+    const existingRequest = existingResult.rows[0];
+
+    if (existingRequest.status !== "PENDING") {
+        throw new Error("Only PENDING requests can be deleted");
+    }
+
+    await pool.query(
+        `DELETE FROM leave_requests
+     WHERE id = $1 AND user_id = $2`,
+        [leaveRequestId, userId]
+    );
+
+    return true;
+};
+
 module.exports = {
     createLeaveRequest,
     getMyLeaveRequests,
+    getLeaveRequestById,
+    updateLeaveRequest,
+    deleteLeaveRequest,
 };
