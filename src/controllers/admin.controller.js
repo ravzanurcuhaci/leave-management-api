@@ -1,108 +1,81 @@
 const adminService = require("../services/admin.service");
+const asyncHandler = require("../middlewares/asyncHandler");
 
-const getAllUsers = async (req, res) => {
-    try {
-        const { role_id, page = 1, limit = 10 } = req.query;
+const getAllUsers = asyncHandler(async (req, res) => {
+    const { role_id, page = 1, limit = 10 } = req.query;
 
-        const result = await adminService.getAllUsers({
-            role_id,
-            page: Number(page),
-            limit: Number(limit),
-        });
+    const result = await adminService.getAllUsers({
+        role_id,
+        page: Number(page),
+        limit: Number(limit),
+    });
 
-        res.status(200).json(result);
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+    res.status(200).json(result);
+});
 
-const getUserById = async (req, res) => {
-    try {
-        const user = await adminService.getUserById(req.params.id);
+const getUserById = asyncHandler(async (req, res) => {
+    const user = await adminService.getUserById(req.params.id);
 
-        res.status(200).json({ user });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+    res.status(200).json({ user });
+});
 
-const createUser = async (req, res) => {
-    try {
-        const user = await adminService.createUser(req.body);
+const createUser = asyncHandler(async (req, res) => {
+    const user = await adminService.createUser(req.body);
 
-        res.status(201).json({
-            message: "User created",
-            user,
-        });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+    res.status(201).json({
+        message: "User created",
+        user,
+    });
+});
 
-const updateUser = async (req, res) => {
-    try {
-        const user = await adminService.updateUser(req.params.id, req.body);
+const updateUser = asyncHandler(async (req, res) => {
+    const user = await adminService.updateUser(req.params.id, req.body);
 
-        res.status(200).json({
-            message: "User updated",
-            user,
-        });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+    res.status(200).json({
+        message: "User updated",
+        user,
+    });
+});
 
-const deleteUser = async (req, res) => {
-    try {
-        await adminService.deleteUser(req.params.id);
+const deleteUser = asyncHandler(async (req, res) => {
+    await adminService.deleteUser(req.params.id);
 
-        res.status(200).json({
-            message: "User deleted",
-        });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+    res.status(200).json({
+        message: "User deleted",
+    });
+});
 
-const updateUserRole = async (req, res) => {
-    try {
-        const adminUserId = req.user.userId;
-        const { role_id } = req.body;
+const updateUserRole = asyncHandler(async (req, res) => {
+    const adminUserId = req.user.userId;
+    const { role_id } = req.body;
 
-        const user = await adminService.updateUserRole(
-            adminUserId,
-            req.params.id,
-            role_id
-        );
+    const user = await adminService.updateUserRole(
+        adminUserId,
+        req.params.id,
+        role_id
+    );
 
-        res.status(200).json({
-            message: "User role updated",
-            user,
-        });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+    res.status(200).json({
+        message: "User role updated",
+        user,
+    });
+});
 
-const updateUserManager = async (req, res) => {
-    try {
-        const adminUserId = req.user.userId;
-        const { manager_id } = req.body;
+const updateUserManager = asyncHandler(async (req, res) => {
+    const adminUserId = req.user.userId;
+    const { manager_id } = req.body;
 
-        const user = await adminService.updateUserManager(
-            adminUserId,
-            req.params.id,
-            manager_id
-        );
+    const user = await adminService.updateUserManager(
+        adminUserId,
+        req.params.id,
+        manager_id
+    );
 
-        res.status(200).json({
-            message: "User manager updated",
-            user,
-        });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+    res.status(200).json({
+        message: "User manager updated",
+        user,
+    });
+});
 
 module.exports = {
     getAllUsers,

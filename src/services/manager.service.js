@@ -1,6 +1,7 @@
 const pool = require("../db/pool");
+const { BadRequestError, NotFoundError } = require("../errors/AppError");
 //leave_requests tablosu izinleri bilir.
-//users tablosu çalışanın manager’ını bilir.
+//users tablosu çalışanın manager'ını bilir.
 //leave_types tablosu izin türünün adını bilir.
 
 //Bu yüzden JOIN yaptık.
@@ -63,7 +64,7 @@ const getLeaveRequests = async (managerId, filters) => {
 //FOR UPDATE → aynı kayıt aynı anda iki kişi tarafından değiştirilmesin
 const updateLeaveRequestStatus = async (managerId, leaveRequestId, status) => {
     if (!["APPROVED", "REJECTED"].includes(status)) {
-        throw new Error("Status must be APPROVED or REJECTED");
+        throw new BadRequestError("Status must be APPROVED or REJECTED");
     }
 
     const client = await pool.connect();
@@ -83,17 +84,17 @@ const updateLeaveRequestStatus = async (managerId, leaveRequestId, status) => {
         );
 
         if (requestResult.rows.length === 0) {
-            throw new Error("Leave request not found");
+            throw new NotFoundError("Leave request not found");
         }
 
         const leaveRequest = requestResult.rows[0];
 
         if (leaveRequest.manager_id !== managerId) {
-            throw new Error("You can only update your employees' leave requests");
+            throw new BadRequestError("You can only update your employees' leave requests");
         }
 
         if (leaveRequest.status !== "PENDING") {
-            throw new Error("Only PENDING requests can be updated");
+            throw new BadRequestError("Only PENDING requests can be updated");
         }
 
         if (status === "APPROVED") {
@@ -106,13 +107,13 @@ const updateLeaveRequestStatus = async (managerId, leaveRequestId, status) => {
             );
 
             if (balanceResult.rows.length === 0) {
-                throw new Error("Leave balance not found");
+                throw new NotFoundError("Leave balance not found");
             }
 
             const remainingDays = balanceResult.rows[0].remaining_days;
 
             if (remainingDays < leaveRequest.total_days) {
-                throw new Error("Not enough leave balance");
+                throw new BadRequestError("Not enough leave balance");
             }
 
             await client.query(
@@ -206,7 +207,7 @@ const getLeaveRequestById = async (managerId, leaveRequestId) => {
     );
 
     if (result.rows.length === 0) {
-        throw new Error("Leave request not found");
+        throw new NotFoundError("Leave request not found");
     }
 
     return result.rows[0];

@@ -1,6 +1,7 @@
 const pool = require("../db/pool");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { BadRequestError, UnauthorizedError, ConflictError } = require("../errors/AppError");
 
 const register = async ({ full_name, email, password, role_id, manager_id }) => {
     // 1. email var mı kontrol
@@ -10,7 +11,7 @@ const register = async ({ full_name, email, password, role_id, manager_id }) => 
     );
 
     if (existingUser.rows.length > 0) {
-        throw new Error("Email already exists");
+        throw new ConflictError("Email already exists");
     }
 
     // 2. şifreyi hashle
@@ -33,7 +34,7 @@ const login = async ({ email, password }) => {
     );
 
     if (user.rows.length === 0) {
-        throw new Error("Invalid email or password");
+        throw new UnauthorizedError("Invalid email or password");
     }
 
     const userData = user.rows[0];
@@ -44,7 +45,7 @@ const login = async ({ email, password }) => {
     );
 
     if (!isPasswordValid) {
-        throw new Error("Invalid email or password");
+        throw new UnauthorizedError("Invalid email or password");
     }
 
     const accessToken = jwt.sign(
@@ -87,7 +88,7 @@ const login = async ({ email, password }) => {
 };
 const refresh = async (refreshToken) => {
     if (!refreshToken) {
-        throw new Error("Refresh token is required");
+        throw new BadRequestError("Refresh token is required");
     }
 
     const decoded = jwt.verify(
@@ -102,7 +103,7 @@ const refresh = async (refreshToken) => {
     );
 
     if (tokenResult.rows.length === 0) {
-        throw new Error("Refresh token is revoked or invalid");
+        throw new UnauthorizedError("Refresh token is revoked or invalid");
     }
 
     const userResult = await pool.query(
@@ -113,7 +114,7 @@ const refresh = async (refreshToken) => {
     );
 
     if (userResult.rows.length === 0) {
-        throw new Error("User not found");
+        throw new UnauthorizedError("User not found");
     }
 
     const user = userResult.rows[0];
@@ -136,7 +137,7 @@ const refresh = async (refreshToken) => {
 
 const logout = async (refreshToken) => {
     if (!refreshToken) {
-        throw new Error("Refresh token is required");
+        throw new BadRequestError("Refresh token is required");
     }
 
     await pool.query(

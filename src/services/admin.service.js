@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 const bcrypt = require("bcrypt");
+const { BadRequestError, NotFoundError, ConflictError } = require("../errors/AppError");
 
 // Tüm kullanıcıları listele (pagination + opsiyonel role filtresi)
 const getAllUsers = async (filters) => {
@@ -64,7 +65,7 @@ const getUserById = async (userId) => {
     );
 
     if (result.rows.length === 0) {
-        throw new Error("User not found");
+        throw new NotFoundError("User not found");
     }
 
     return result.rows[0];
@@ -75,7 +76,7 @@ const createUser = async (data) => {
     const { full_name, email, password, role_id, manager_id } = data;
 
     if (!full_name || !email || !password || !role_id) {
-        throw new Error("full_name, email, password and role_id are required");
+        throw new BadRequestError("full_name, email, password and role_id are required");
     }
 
     // email kontrolü
@@ -85,7 +86,7 @@ const createUser = async (data) => {
     );
 
     if (existing.rows.length > 0) {
-        throw new Error("Email already exists");
+        throw new ConflictError("Email already exists");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -110,7 +111,7 @@ const updateUser = async (userId, data) => {
     );
 
     if (existing.rows.length === 0) {
-        throw new Error("User not found");
+        throw new NotFoundError("User not found");
     }
 
     const newFullName = full_name || existing.rows[0].full_name;
@@ -123,7 +124,7 @@ const updateUser = async (userId, data) => {
             [email, userId]
         );
         if (emailCheck.rows.length > 0) {
-            throw new Error("Email already exists");
+            throw new ConflictError("Email already exists");
         }
     }
 
@@ -146,7 +147,7 @@ const deleteUser = async (userId) => {
     );
 
     if (existing.rows.length === 0) {
-        throw new Error("User not found");
+        throw new NotFoundError("User not found");
     }
 
     await pool.query("DELETE FROM users WHERE id = $1", [userId]);
@@ -157,7 +158,7 @@ const deleteUser = async (userId) => {
 // Kullanıcının rolünü değiştir + audit log
 const updateUserRole = async (adminUserId, userId, role_id) => {
     if (!role_id) {
-        throw new Error("role_id is required");
+        throw new BadRequestError("role_id is required");
     }
 
     const existing = await pool.query(
@@ -166,7 +167,7 @@ const updateUserRole = async (adminUserId, userId, role_id) => {
     );
 
     if (existing.rows.length === 0) {
-        throw new Error("User not found");
+        throw new NotFoundError("User not found");
     }
 
     const result = await pool.query(
@@ -195,7 +196,7 @@ const updateUserManager = async (adminUserId, userId, manager_id) => {
     );
 
     if (existing.rows.length === 0) {
-        throw new Error("User not found");
+        throw new NotFoundError("User not found");
     }
 
     // manager_id null olabilir (manager'ı kaldırmak için)
@@ -205,7 +206,7 @@ const updateUserManager = async (adminUserId, userId, manager_id) => {
             [manager_id]
         );
         if (managerCheck.rows.length === 0) {
-            throw new Error("Manager not found");
+            throw new NotFoundError("Manager not found");
         }
     }
 

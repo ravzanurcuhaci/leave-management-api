@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { BadRequestError, NotFoundError, ConflictError } = require("../errors/AppError");
 
 // Tüm izin türlerini listele
 const getAll = async () => {
@@ -16,7 +17,7 @@ const create = async (data) => {
     const { name, default_days } = data;
 
     if (!name || default_days === undefined) {
-        throw new Error("name and default_days are required");
+        throw new BadRequestError("name and default_days are required");
     }
 
     // Aynı isimde var mı kontrol et
@@ -26,7 +27,7 @@ const create = async (data) => {
     );
 
     if (existing.rows.length > 0) {
-        throw new Error("Leave type already exists");
+        throw new ConflictError("Leave type already exists");
     }
 
     const result = await pool.query(
@@ -49,7 +50,7 @@ const update = async (id, data) => {
     );
 
     if (existing.rows.length === 0) {
-        throw new Error("Leave type not found");
+        throw new NotFoundError("Leave type not found");
     }
 
     const newName = name || existing.rows[0].name;
@@ -62,7 +63,7 @@ const update = async (id, data) => {
             [name, id]
         );
         if (nameCheck.rows.length > 0) {
-            throw new Error("Leave type name already exists");
+            throw new ConflictError("Leave type name already exists");
         }
     }
 
@@ -85,7 +86,7 @@ const remove = async (id) => {
     );
 
     if (existing.rows.length === 0) {
-        throw new Error("Leave type not found");
+        throw new NotFoundError("Leave type not found");
     }
 
     await pool.query("DELETE FROM leave_types WHERE id = $1", [id]);

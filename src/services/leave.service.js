@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { BadRequestError, NotFoundError, ConflictError } = require("../errors/AppError");
 
 const calculateTotalDays = (startDate, endDate) => {
     const start = new Date(startDate);
@@ -14,13 +15,13 @@ const createLeaveRequest = async (userId, data) => {
     const { leave_type_id, start_date, end_date, reason } = data;
 
     if (!leave_type_id || !start_date || !end_date) {
-        throw new Error("leave_type_id, start_date and end_date are required");
+        throw new BadRequestError("leave_type_id, start_date and end_date are required");
     }
 
     const totalDays = calculateTotalDays(start_date, end_date);
 
     if (totalDays <= 0) {
-        throw new Error("end_date must be after or equal to start_date");
+        throw new BadRequestError("end_date must be after or equal to start_date");
     }
 
     const balanceResult = await pool.query(
@@ -31,13 +32,13 @@ const createLeaveRequest = async (userId, data) => {
     );
 
     if (balanceResult.rows.length === 0) {
-        throw new Error("Leave balance not found for this leave type");
+        throw new NotFoundError("Leave balance not found for this leave type");
     }
 
     const remainingDays = balanceResult.rows[0].remaining_days;
 
     if (remainingDays < totalDays) {
-        throw new Error("Not enough leave balance");
+        throw new BadRequestError("Not enough leave balance");
     }
 
     const overlapResult = await pool.query(
@@ -51,7 +52,7 @@ const createLeaveRequest = async (userId, data) => {
     );
 
     if (overlapResult.rows.length > 0) {
-        throw new Error("Leave request overlaps with existing request");
+        throw new ConflictError("Leave request overlaps with existing request");
     }
 
     const result = await pool.query(
@@ -86,7 +87,7 @@ const getLeaveRequestById = async (userId, leaveRequestId) => {
     );
 
     if (result.rows.length === 0) {
-        throw new Error("Leave request not found");
+        throw new NotFoundError("Leave request not found");
     }
 
     return result.rows[0];
@@ -103,13 +104,13 @@ const updateLeaveRequest = async (userId, leaveRequestId, data) => {
     );
 
     if (existingResult.rows.length === 0) {
-        throw new Error("Leave request not found");
+        throw new NotFoundError("Leave request not found");
     }
 
     const existingRequest = existingResult.rows[0];
 
     if (existingRequest.status !== "PENDING") {
-        throw new Error("Only PENDING requests can be updated");
+        throw new BadRequestError("Only PENDING requests can be updated");
     }
 
     const newLeaveTypeId = leave_type_id || existingRequest.leave_type_id;
@@ -120,7 +121,7 @@ const updateLeaveRequest = async (userId, leaveRequestId, data) => {
     const totalDays = calculateTotalDays(newStartDate, newEndDate);
 
     if (totalDays <= 0) {
-        throw new Error("end_date must be after or equal to start_date");
+        throw new BadRequestError("end_date must be after or equal to start_date");
     }
 
     const balanceResult = await pool.query(
@@ -131,13 +132,13 @@ const updateLeaveRequest = async (userId, leaveRequestId, data) => {
     );
 
     if (balanceResult.rows.length === 0) {
-        throw new Error("Leave balance not found for this leave type");
+        throw new NotFoundError("Leave balance not found for this leave type");
     }
 
     const remainingDays = balanceResult.rows[0].remaining_days;
 
     if (remainingDays < totalDays) {
-        throw new Error("Not enough leave balance");
+        throw new BadRequestError("Not enough leave balance");
     }
 
     const overlapResult = await pool.query(
@@ -152,7 +153,7 @@ const updateLeaveRequest = async (userId, leaveRequestId, data) => {
     );
 
     if (overlapResult.rows.length > 0) {
-        throw new Error("Leave request overlaps with existing request");
+        throw new ConflictError("Leave request overlaps with existing request");
     }
 
     const result = await pool.query(
@@ -187,13 +188,13 @@ const deleteLeaveRequest = async (userId, leaveRequestId) => {
     );
 
     if (existingResult.rows.length === 0) {
-        throw new Error("Leave request not found");
+        throw new NotFoundError("Leave request not found");
     }
 
     const existingRequest = existingResult.rows[0];
 
     if (existingRequest.status !== "PENDING") {
-        throw new Error("Only PENDING requests can be deleted");
+        throw new BadRequestError("Only PENDING requests can be deleted");
     }
 
     await pool.query(

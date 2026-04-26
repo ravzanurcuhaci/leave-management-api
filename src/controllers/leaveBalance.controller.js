@@ -1,20 +1,15 @@
 const leaveBalanceService = require("../services/leaveBalance.service");
+const asyncHandler = require("../middlewares/asyncHandler");
 
-const getMyLeaveBalances = async (req, res) => {
-    try {
-        const userId = req.user.userId;
+const getMyLeaveBalances = asyncHandler(async (req, res) => {
+    const userId = req.user.userId;
 
-        const balances = await leaveBalanceService.getMyLeaveBalances(userId);
+    const balances = await leaveBalanceService.getMyLeaveBalances(userId);
 
-        res.status(200).json({
-            balances,
-        });
-    } catch (error) {
-        res.status(400).json({
-            message: error.message,
-        });
-    }
-};
+    res.status(200).json({
+        balances,
+    });
+});
 
 module.exports = {
     getMyLeaveBalances,

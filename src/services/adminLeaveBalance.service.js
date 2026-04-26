@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { BadRequestError, NotFoundError } = require("../errors/AppError");
 
 // Bir kullanıcının tüm izin bakiyelerini getir
 const getBalancesByUserId = async (userId) => {
@@ -9,7 +10,7 @@ const getBalancesByUserId = async (userId) => {
     );
 
     if (userCheck.rows.length === 0) {
-        throw new Error("User not found");
+        throw new NotFoundError("User not found");
     }
 
     const result = await pool.query(
@@ -35,11 +36,11 @@ const updateBalance = async (userId, leaveTypeId, data) => {
     const { remaining_days } = data;
 
     if (remaining_days === undefined) {
-        throw new Error("remaining_days is required");
+        throw new BadRequestError("remaining_days is required");
     }
 
     if (remaining_days < 0) {
-        throw new Error("remaining_days cannot be negative");
+        throw new BadRequestError("remaining_days cannot be negative");
     }
 
     // Bakiye kaydı var mı kontrol et

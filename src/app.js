@@ -20,6 +20,7 @@ const adminRoutes = require("./routes/admin.routes");
 const leaveTypeRoutes = require("./routes/leaveType.routes");
 const adminLeaveBalanceRoutes = require("./routes/adminLeaveBalance.routes");
 const auditLogRoutes = require("./routes/auditLog.routes");
+const errorHandler = require("./middlewares/errorHandler");
 const app = express();
 
 app.use(express.json());
@@ -42,6 +43,9 @@ app.get("/health", async (req, res) => {
         database_time: result.rows[0].now,
     });
 });
+
+// Global error handler — tüm hatalar buraya düşer (EN SONDA olmalı!)
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
