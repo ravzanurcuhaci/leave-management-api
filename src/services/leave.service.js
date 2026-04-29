@@ -18,6 +18,13 @@ const createLeaveRequest = async (userId, data) => {
         throw new BadRequestError("leave_type_id, start_date and end_date are required");
     }
 
+    // Geçmiş tarih kontrolü: bugünden önceki bir tarihe izin alınamaz
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (new Date(start_date) < today) {
+        throw new BadRequestError("start_date cannot be in the past");
+    }
+
     const totalDays = calculateTotalDays(start_date, end_date);
 
     if (totalDays <= 0) {
@@ -117,6 +124,13 @@ const updateLeaveRequest = async (userId, leaveRequestId, data) => {
     const newStartDate = start_date || existingRequest.start_date;
     const newEndDate = end_date || existingRequest.end_date;
     const newReason = reason !== undefined ? reason : existingRequest.reason;
+
+    // Geçmiş tarih kontrolü: bugünden önceki bir tarihe izin alınamaz
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (new Date(newStartDate) < today) {
+        throw new BadRequestError("start_date cannot be in the past");
+    }
 
     const totalDays = calculateTotalDays(newStartDate, newEndDate);
 
