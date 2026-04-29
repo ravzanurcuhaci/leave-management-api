@@ -62,7 +62,9 @@ const getLeaveRequests = async (managerId, filters) => {
 //COMMIT  → her şey başarılıysa kaydet
 //ROLLBACK → hata varsa hepsini geri al
 //FOR UPDATE → aynı kayıt aynı anda iki kişi tarafından değiştirilmesin
+const emailQueue = require("../queues/email.queue");
 const updateLeaveRequestStatus = async (managerId, leaveRequestId, status) => {
+    console.log("QUEUEYA GİTTİ");
     if (!["APPROVED", "REJECTED"].includes(status)) {
         throw new BadRequestError("Status must be APPROVED or REJECTED");
     }
@@ -152,6 +154,20 @@ const updateLeaveRequestStatus = async (managerId, leaveRequestId, status) => {
         );
 
         await client.query("COMMIT");
+
+        const userResult = await pool.query(
+            `SELECT email, full_name FROM users WHERE id = $1`,
+            [leaveRequest.user_id]
+        );
+
+        const user = userResult.rows[0];
+
+        // Manager bir izin talebini onayladığında/reddettiğinde:
+        await emailQueue.add("leave-status-updated", {
+            email: user.email,
+            fullName: user.full_name,
+            status,
+        });
 
         return updatedResult.rows[0];
     } catch (error) {
